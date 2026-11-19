@@ -956,6 +956,21 @@ async function soLoad(force){if(!gasCfg().url||SO.busy)return;if(!force&&Date.no
       if(!SO.favs&&SO.state.household){try{const f=await soCall('/households/'+SO.state.household+'/favorites');SO.favs=f.items||[]}catch(e){SO.favs=[]}}}}
   catch(e){SO.err=e.message}SO.busy=false;SO.pollAt=Date.now();if(stack.length&&stack[stack.length-1]===musicViewFn)refreshView()}
 function soGroupName(g){const ps=(SO.state?.players||[]).filter(p=>(g.playerIds||[]).includes(p.id)).map(p=>p.name);return ps.join(' + ')||g.name}
+function soRoomView(pid){const f=()=>{
+  const p=(SO.state?.players||[]).find(x=>x.id===pid),name=p?.name||'Sonos',g=(SO.state?.groups||[]).find(g=>(g.playerIds||[]).includes(pid));
+  const pb=g?.playback||{},m=g?.meta||{},tr=m.currentItem?.track||{},play=/PLAYING|BUFFERING/.test(pb.playbackState||''),vol=g?.volume?.volume;
+  const favs=(SO.favs||[]);
+  return head('🔊 '+name,play?'Spelar no':'Sonos-høgtalar')+`
+   ${g?`<div class="panel"><div class="np" style="gap:14px"><span class="art" style="width:56px;height:56px;font-size:26px">🔊</span><div style="flex:1"><b>${esc(tr.name||m.container?.name||'Ingenting blir spela')}</b><div class="hint" style="margin:2px 0 0">${esc(tr.artist?.name||m.container?.service?.name||'')}</div></div>
+     <button class="pbtn big" style="width:54px;height:54px;font-size:22px" onclick="App.soCmd('${g.id}','togglePlayPause');setTimeout(refreshView,1200)">${play?'⏸':'▶'}</button></div>
+     ${vol!=null?`<div class="row" style="margin-top:10px;flex-wrap:nowrap">🔈<input type="range" min="0" max="100" value="${vol}" onchange="App.soVol('${g.id}',this.value)">🔊</div>`:''}</div>`:''}
+   <div class="sec"><h3><span>⭐ Spel ein Sonos-favoritt her</span></h3>
+   ${favs.length?`<div class="chips">${favs.map(fv=>`<button class="chip" onclick="App.soRoomFav('${pid}','${esc(fv.id)}')">⭐ ${esc(fv.name)}</button>`).join('')}</div>`:'<div class="empty">Ingen Sonos-favorittar enno. Legg til favorittar i Sonos-appen (t.d. Spotify-spelelister), så dukkar dei opp her.</div>'}</div>
+   <div class="sec"><h3><span>🎵 Sende Spotify-musikken hit</span></h3>
+   <p class="hint" style="margin-top:0">Spotify ser ikkje «${esc(name)}» akkurat no, så skjermen kan ikkje flytte låta som spelar direkte dit. Slik fiksar du det éin gong:</p>
+   <ol class="hint" style="padding-left:20px;line-height:1.6"><li>Opne Spotify-appen på telefonen (same Wi-Fi som høgtalarane).</li><li>Trykk på høgtalarikonet nedst og vel <b>${esc(name)}</b>.</li><li>Etterpå hugsar Spotify høgtalaren, og du kan velje han her på skjermen.</li></ol>
+   <p class="hint">Sjekk òg at Spotify-kontoen er lagt til i Sonos-appen: <b>Innstillingar → Tenester og tale → Spotify</b>.</p>
+   <button class="btn" onclick="App.soSpotify('${pid}')">↻ Prøv igjen</button></div>`};return f}
 function sonosHtml(){
   if(!SO.connected)return '';
   const st=SO.state;if(!st||!st.groups)return `<div class="sec"><h3><span>🔊 Sonos</span></h3><div class="empty">${SO.err?'⚠️ '+esc(SO.err):'Hentar Sonos…'}</div></div>`;
@@ -1599,9 +1614,9 @@ const App={
     const p=soNames().find(x=>x.id===pid);const name=p?.name||'';
     toast('🔈 Ser etter '+esc(name)+' i Spotify…');
     for(let k=0;k<4;k++){await new Promise(r=>setTimeout(r,1500));try{const d=await sp('/me/player/devices');SP.devices=d.devices||[]}catch(e){}
-      const m=SP.devices.find(d=>d.name.toLowerCase()===name.toLowerCase());if(m)return App.spDev(m.id,true)}
-    const g=(SO.state?.groups||[]).find(g=>(g.playerIds||[]).includes(pid));
-    toast(g?'Spotify ser ikkje '+esc(name)+' enno. Start ein Sonos-favoritt under, eller vel høgtalaren éin gong i Spotify-appen.':'Fann ikkje høgtalaren');refreshMusicView()},
+      const n=name.toLowerCase(),m=SP.devices.find(d=>d.name.toLowerCase()===n)||SP.devices.find(d=>d.name.toLowerCase().includes(n)||n.includes(d.name.toLowerCase()));if(m)return App.spDev(m.id,true)}
+    view(soRoomView(pid))},
+  soRoomFav(pid,fid){const g=(SO.state?.groups||[]).find(g=>(g.playerIds||[]).includes(pid));if(!g)return toast('Fann ikkje rommet');App.soFav(g.id,fid);setTimeout(()=>refreshView(),1500)},
   async spDev(id,forcePlay){SP.devSel=id;try{await sp('/me/player','PUT',{device_ids:[id],play:forcePlay?true:!!SP.state?.is_playing});setTimeout(()=>{spPoll();spLoadExtras()},700)}catch(e){toast('⚠️ '+esc(e.message))}refreshView()},
   async spVol(v){try{await sp(`/me/player/volume?volume_percent=${+v}`,'PUT')}catch(e){toast('⚠️ '+esc(e.message))}},
   spRefresh(){spLoadExtras();spPoll()},
