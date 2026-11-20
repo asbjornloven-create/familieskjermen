@@ -408,6 +408,8 @@ body[data-mode=night] #rest .rtemp,body[data-mode=night] #rest .rtemp .big,body[
 body[data-mode=night] #rest .rparty,body[data-mode=night] #rest .rparty span{color:var(--rr)}
 body[data-mode=night] #rest .rbday span{color:var(--rr);background:rgba(255,70,40,.08);border-color:rgba(255,70,40,.28)}
 body[data-mode=night] #rest .rmusic{background:rgba(255,70,40,.06);border-color:rgba(255,70,40,.18)}
+.mnext{white-space:nowrap;opacity:.9;margin-left:2px}
+.clockcard .sun{flex-direction:column;align-items:flex-start;gap:2px!important}
 </style>
 </head>
 <body data-theme="winter" data-mode="day">
@@ -797,7 +799,9 @@ async function loadSun(){
   const el=$('#sun');if(!el)return;const f=t=>t?hm(new Date(t)):'–';let html='';
   if(c&&(c.up||c.down))html+=`<div>🌅 ${f(c.up)} &nbsp;🌇 ${f(c.down)}</div>`;
   const ph=(m&&m.phase!=null)?+m.phase:moonPhaseDeg(d),ill=Math.round((1-Math.cos(ph*Math.PI/180))/2*100);
-  html+=`<div title="Månen: ${ill} % av fullmåne">${moonEmoji(ph)} ${m&&(m.up||m.down)?`${f(m.up)} – ${f(m.down)} · `:''}<b style="color:#fff">${ill} %</b></div>`;
+  const syn=29.530588853,wax=ph<180,dl=(wax?(180-ph):(360-ph))/360*syn,dn=Math.round(dl);
+  const nxt=wax?'fullmåne':'nymåne',when=dl<.5?'i dag':dn===1?'i morgon':`om ${dn} d`;
+  html+=`<div title="Månen: ${ill} % av fullmåne – ${nxt} ${when}">${moonEmoji(ph)} ${m&&(m.up||m.down)?`${f(m.up)} – ${f(m.down)} · `:''}<b style="color:#fff">${ill} %</b> <span class="mnext">· ${nxt} ${when}</span></div>`;
   el.innerHTML=html;
 }
 /* ============ Ekstra vêrstader ============ */
