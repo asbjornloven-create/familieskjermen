@@ -798,7 +798,7 @@ async function loadSun(){
     m={key,up:j.properties?.moonrise?.time||null,down:j.properties?.moonset?.time||null,phase:j.properties?.moonphase??null};LS.set('fam_moon',m)}catch(e){m=null}}
   const el=$('#sun');if(!el)return;const f=t=>t?hm(new Date(t)):'–';let html='';
   if(c&&(c.up||c.down))html+=`<div>🌅 ${f(c.up)} &nbsp;🌇 ${f(c.down)}</div>`;
-  const ph=(m&&m.phase!=null)?+m.phase:moonPhaseDeg(d),ill=Math.round((1-Math.cos(ph*Math.PI/180))/2*100);
+  const ph=moonPhaseDeg(new Date()),ill=Math.round((1-Math.cos(ph*Math.PI/180))/2*100);
   const syn=29.530588853,wax=ph<180,dl=(wax?(180-ph):(360-ph))/360*syn,dn=Math.round(dl);
   const nxt=wax?'fullmåne':'nymåne',when=dl<.5?'i dag':dn===1?'i morgon':`om ${dn} d`;
   html+=`<div title="Månen: ${ill} % av fullmåne – ${nxt} ${when}">${moonEmoji(ph)} ${m&&(m.up||m.down)?`${f(m.up)} – ${f(m.down)} · `:''}<b style="color:#fff">${ill} %</b> <span class="mnext">· ${nxt} ${when}</span></div>`;
