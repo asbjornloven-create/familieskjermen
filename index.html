@@ -1312,7 +1312,7 @@ function renderFamily(){
     return `<button class="mtile" onclick="App.shop()"><span class="av" style="background:#22c55e">🛒</span><span class="info"><div class="n">Handleliste</div><div class="s">${op.length?esc(op.slice(0,4).map(i=>i.name).join(', ')):'Tom – trykk for å leggje til'}</div>${op.length?`<span class="bal" style="background:#bbf7d0">${op.length} ${op.length===1?'vare':'varer'}</span>`:''}</span></button>`})();
 }
 function renderClock(){const d=new Date();$('#clock').innerHTML=`${pad(d.getHours())}:${pad(d.getMinutes())}<small>${pad(d.getSeconds())}</small>`}
-function render(){applyTheme();renderTop();renderMusic();if(document.body.classList.contains('shopmode'))renderShopPage();renderAgenda();renderCal();renderSoon();renderFamily();refreshView()}
+function render(){applyTheme();renderTop();renderMusic();if(document.body.classList.contains('shopmode'))renderShopPage();renderAgenda();renderCal();renderSoon();renderFamily();refreshView();updateShopLists()}
 function softRender(){render()}
 
 /* ============ Modal-system ============ */
@@ -1689,7 +1689,7 @@ const App={
   rest(){showRest()},
   placeSettings(){const go=()=>{setTab='place';view(settingsView)};S.settings.pinSettings?withPin(go):go()},
   shop(){view(shopViewFn)},
-  shopAdd(inputId){const el=document.getElementById(inputId);const n=shopAdd(el?.value);if(el){el.value='';el.focus()}if(n)toast(`🛒 La til ${n} ${n===1?'vare':'varer'}`)},
+  shopAdd(inputId){const el=document.getElementById(inputId);if(el)el.focus();const n=shopAdd(el?.value);if(el){el.value='';el.focus()}updateShopLists();if(el)el.focus();if(n)toast(`🛒 La til ${n} ${n===1?'vare':'varer'}`)},
   shopQuick(q){shopAdd(q);toast('🛒 '+esc(q))},
   shopToggle(id){const i=S.shop[id];if(i)save('shop',{...i,done:!i.done,doneAt:Date.now()})},
   shopDel(id){remove('shop',id)},
@@ -1723,14 +1723,14 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(wantWa
 let lastAct=Date.now();['pointerdown','keydown','touchstart'].forEach(e=>addEventListener(e,()=>lastAct=Date.now(),{passive:true}));
 
 /* ============ Handleliste ============ */
-const SHOP_CATS=[['🥦','Frukt og grønt',/banan|eple|appelsin|pære|drue|tomat|agurk|salat|løk|potet|gulrot|paprika|brokkoli|frukt|sitron|lime|avokado|bær|sopp|hvitløk|mais|kål|squash|ingefær|urter/i],
- ['🥛','Meieri og egg',/melk|ost\b|ost$|smør|yoghurt|yogurt|rømme|fløte|egg|kesam|cottage|brunost|kulturmelk|creme fraiche|margarin|bremykt/i],
+const SHOP_CATS=[['🥦','Frukt og grønt',/banan|eple|appelsin|pære|drue|tomat|agurk|salat|løk|potet|poteter|gulrot|gulrøter|kvitlauk|lauk|paprika|brokkoli|frukt|sitron|lime|avokado|bær|sopp|hvitløk|mais|kål|squash|ingefær|urter/i],
+ ['🥛','Meieri og egg',/melk|mjølk|ost\b|ost$|smør|yoghurt|yogurt|rømme|fløte|fløyte|egg|kesam|cottage|brunost|kulturmelk|creme fraiche|margarin|bremykt/i],
  ['🍞','Brød og bakst',/brød|rundstykk|knekkebrød|lompe|lefse|kake|bolle|tortilla|pita|baguett|ciabatta|kjeks|vafl/i],
  ['🥩','Kjøtt og fisk',/kjøtt|kylling|pølse|bacon|skinke|laks|fisk|torsk|karbonade|pålegg|salami|reker|biff|svin|lam|filet|kebab|leverpostei|makrell/i],
  ['🧊','Frys',/frossen|frys|iskrem|\bis\b|pizza|fiskepinne|wok/i],
  ['🥫','Tørrvarer',/pasta|spagetti|makaroni|ris\b|mel\b|hvetemel|sukker|kaffe|\bte\b|müsli|musli|havre|cornflakes|frokostblanding|hermetikk|saus|krydder|salt|pepper|olje|ketchup|majones|sennep|syltetøy|nugatti|taco|buljong|nøtter|rosiner|chips|sjokolade|godteri|snacks|bønner|linser|hermetiske/i],
- ['🧃','Drikke',/juice|brus|vann\b|saft|øl\b|cola|smoothie|kakao|iste/i],
- ['🧻','Hus og hygiene',/dopapir|toalettpapir|tørkepapir|såpe|oppvask|vaskemiddel|tøymykner|tannkrem|tannbørst|sjampo|balsam|bleie|søppelpose|batteri|zalo|klut|svamp|aluminiumsfolie|plastfolie|bakepapir|fryseposer|deodorant|bind|tampong|plaster|stearinlys|lyspære/i],
+ ['🧃','Drikke',/juice|brus|vann\b|vatn\b|saft|øl\b|cola|smoothie|kakao|iste/i],
+ ['🧻','Hus og hygiene',/dopapir|toalettpapir|tørkepapir|såpe|sape|oppvask|vaskemiddel|tøymykner|tannkrem|tannbørst|sjampo|balsam|bleie|søppelpose|batteri|zalo|klut|svamp|aluminiumsfolie|plastfolie|bakepapir|fryseposer|deodorant|bind|tampong|plaster|stearinlys|lyspære/i],
  ['🛒','Annet',null]];
 const SHOP_QUICK=['Melk','Brød','Egg','Smør','Ost','Bananer','Epler','Kaffe','Yoghurt','Pålegg','Kjøttdeig','Pasta','Dopapir','Agurk'];
 const catOf=n=>{const i=SHOP_CATS.findIndex(c=>c[2]&&c[2].test(n));return i<0?SHOP_CATS.length-1:i};
@@ -1742,11 +1742,19 @@ function shopAdd(text){const parts=String(text||'').split(/[,;\n]+/).map(s=>s.tr
     if(old)save('shop',{...old,done:false,created:Date.now()});else save('shop',{id:uid(),name,cat:catOf(name),done:false,created:Date.now()});n++});return n}
 function shopGrouped(items){const g={};items.forEach(i=>{const c=i.cat??catOf(i.name);(g[c]=g[c]||[]).push(i)});
   return Object.keys(g).map(Number).sort((a,b)=>a-b).map(c=>({c,items:g[c].sort((a,b)=>(a.done-b.done)||a.name.localeCompare(b.name,'nb'))}))}
+function shopListInner(items){return shopGrouped(items).map(g=>`<div class="sl-cat">${SHOP_CATS[g.c][0]} ${SHOP_CATS[g.c][1]}</div><div class="sl-items">`+g.items.map(i=>`<div class="li ${i.done?'done':''}"><input type="checkbox" ${i.done?'checked':''} onchange="App.shopToggle('${i.id}')" aria-label="Kjøpt"><span class="g">${esc(i.name)}</span><button class="del" onclick="App.shopDel('${i.id}')" aria-label="Fjern">✕</button></div>`).join('')+'</div>').join('')||'<div class="empty">Ingenting på lista 🎉</div>'}
+function spListInner(items){return shopGrouped(items).map(g=>`<div class="sp-cat">${SHOP_CATS[g.c][0]} ${SHOP_CATS[g.c][1]}</div>`+g.items.map(i=>`<div class="sp-it ${i.done?'done':''}" onclick="App.shopToggle('${i.id}')"><span class="ck">${i.done?'✓':''}</span><span class="nm">${esc(i.name)}</span></div>`).join('')).join('')||'<div class="empty" style="font-size:15px;margin-top:16px">Lista er tom.</div>'}
+/* oppdater berre lista – skrivefeltet (og tastaturet) blir verande */
+function updateShopLists(){const items=shopItems(),open=items.filter(i=>!i.done).length;
+  const sl=document.querySelector('#sheet .shoplist');if(sl)sl.innerHTML=shopListInner(items);
+  const shs=document.querySelector('#sheet .sh-head h2 small');if(sl&&shs)shs.textContent=open?`${open} ${open===1?'vare':'varer'} å kjøpe`:'Lista er tom';
+  const pl=$('#spList');if(pl)pl.innerHTML=spListInner(items);const ps=$('#spSub');if(ps)ps.textContent=open?`${open} att å kjøpe`:'Alt er kjøpt! 🎉';
+  const sc=$('#spClear');if(sc)sc.style.display=items.some(i=>i.done)?'':'none'}
 function shopView(){const items=shopItems(),open=items.filter(i=>!i.done).length,done=items.length-open;
   return head('🛒 Handleliste',open?`${open} ${open===1?'vare':'varer'} å kjøpe`:'Lista er tom')+`
-   <form class="row" style="flex-wrap:nowrap" onsubmit="event.preventDefault();App.shopAdd('shopIn')"><input id="shopIn" placeholder="Kva treng vi? (fleire: skil med komma)" autocomplete="off" enterkeyhint="done"><button class="btn pri" type="submit">＋</button></form>
+   <form class="row" style="flex-wrap:nowrap" onsubmit="event.preventDefault();App.shopAdd('shopIn')"><input id="shopIn" placeholder="Kva treng vi? Skriv og trykk Enter" autocomplete="off" autocapitalize="sentences" enterkeyhint="enter"><button class="btn pri" type="submit">＋</button></form>
    <div class="chips" style="margin-top:10px">${SHOP_QUICK.filter(q=>!items.some(i=>!i.done&&i.name.toLowerCase()===q.toLowerCase())).map(q=>`<button class="chip" onclick="App.shopQuick('${q}')">＋ ${q}</button>`).join('')}</div>
-   <div class="sec"><div class="shoplist">${shopGrouped(items).map(g=>`<div class="sl-cat">${SHOP_CATS[g.c][0]} ${SHOP_CATS[g.c][1]}</div><div class="sl-items">`+g.items.map(i=>`<div class="li ${i.done?'done':''}"><input type="checkbox" ${i.done?'checked':''} onchange="App.shopToggle('${i.id}')" aria-label="Kjøpt"><span class="g">${esc(i.name)}</span><button class="del" onclick="App.shopDel('${i.id}')" aria-label="Fjern">✕</button></div>`).join('')+'</div>').join('')||'<div class="empty">Ingenting på lista 🎉</div>'}</div>
+   <div class="sec"><div class="shoplist">${shopListInner(items)}</div>
    ${done?`<button class="btn sm" style="margin-top:6px" onclick="App.shopClear()">Fjern ${done} kjøpte</button>`:''}</div>
    <div class="sec panel"><h3 class="lbl" style="margin-bottom:12px"><span>📱 Ta med lista i butikken</span></h3>
      <div class="qrbox"><div class="qr" id="qr"><span style="color:#333;font-size:13px">QR-kode…</span></div>
@@ -1758,10 +1766,11 @@ function loadQR(){return window.qrcode?Promise.resolve():new Promise((res,rej)=>
 function postRender(){const q=document.getElementById('qr');if(!q||q.dataset.done)return;
   loadQR().then(()=>{const qr=qrcode(0,'M');qr.addData(shopUrl());qr.make();q.innerHTML=qr.createImgTag(5,8);q.dataset.done=1}).catch(()=>{q.innerHTML='<span style="color:#333;font-size:12px;text-align:center">QR krever nett</span>'})}
 function renderShopPage(){const el=$('#shopPage');if(!el)return;const items=shopItems(),open=items.filter(i=>!i.done).length;
-  el.innerHTML=`<div class="sp-head"><h1>🛒 Handleliste<small>${open?`${open} att å kjøpe`:'Alt er kjøpt! 🎉'}${Sync.base()?'':' · ⚠️ ikkje delt'}</small></h1><button class="ibtn" onclick="App.shopRefresh()" aria-label="Oppdater">🔄</button></div>
-   <form class="row" style="flex-wrap:nowrap" onsubmit="event.preventDefault();App.shopAdd('spIn')"><input id="spIn" placeholder="Legg til vare…" autocomplete="off" enterkeyhint="done" style="font-size:16px;padding:9px 12px"><button class="btn pri" type="submit" style="font-size:18px;padding:8px 14px">＋</button></form>
-   ${shopGrouped(items).map(g=>`<div class="sp-cat">${SHOP_CATS[g.c][0]} ${SHOP_CATS[g.c][1]}</div>`+g.items.map(i=>`<div class="sp-it ${i.done?'done':''}" onclick="App.shopToggle('${i.id}')"><span class="ck">${i.done?'✓':''}</span><span class="nm">${esc(i.name)}</span></div>`).join('')).join('')||'<div class="empty" style="font-size:17px;margin-top:20px">Lista er tom.</div>'}
-   ${items.some(i=>i.done)?`<button class="btn" style="width:100%;margin-top:12px;padding:11px" onclick="App.shopClear()">✅ Ferdig handla – fjern kjøpte</button>`:''}
+  if($('#spIn')&&$('#spList')){updateShopLists();return}
+  el.innerHTML=`<div class="sp-head"><h1>🛒 Handleliste<small><span id="spSub">${open?`${open} att å kjøpe`:'Alt er kjøpt! 🎉'}</span>${Sync.base()?'':' · ⚠️ ikkje delt'}</small></h1><button class="ibtn" onclick="App.shopRefresh()" aria-label="Oppdater">🔄</button></div>
+   <form class="row" style="flex-wrap:nowrap" onsubmit="event.preventDefault();App.shopAdd('spIn')"><input id="spIn" placeholder="Legg til vare – trykk Enter" autocomplete="off" autocapitalize="sentences" enterkeyhint="enter" style="font-size:16px;padding:9px 12px"><button class="btn pri" type="submit" style="font-size:18px;padding:8px 14px">＋</button></form>
+   <div id="spList">${spListInner(items)}</div>
+   <button id="spClear" class="btn" style="width:100%;margin-top:12px;padding:11px;${items.some(i=>i.done)?'':'display:none'}" onclick="App.shopClear()">✅ Ferdig handla – fjern kjøpte</button>
    <p style="text-align:center;margin-top:22px"><a href="#" onclick="event.preventDefault();App.shopExit()" style="color:var(--muted)">← Til familieskjermen</a></p>`;}
 function route(){const on=location.hash==='#handleliste';document.body.classList.toggle('shopmode',on);if(on){closeAll();if(restOn)hideRest();renderShopPage();Sync.pull()}}
 addEventListener('hashchange',route);
